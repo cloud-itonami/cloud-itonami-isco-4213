@@ -1,0 +1,58 @@
+(ns pawnbroking.advisor
+  "Pawnbroking Advisor — the advisor named in this repository's
+  README, proposing a pawnbroking operation (offer a loan, approve an
+  over-appraisal disbursement, approve an unappraised loan offer) from
+  a collateral submission, appraisal and loan request. Swappable
+  mock/llm; the advisor ONLY proposes — `pawnbroking.governor` checks
+  the appraised-value ceiling and appraisal completion independently
+  and always escalates over-appraisal-disbursement and unappraised-
+  loan-offer decisions. Modeled on cloud-itonami-isco-4311's advisor.
+
+  A proposal: {:op :approve-loan-offer|:approve-over-appraisal-disbursement|:approve-unappraised-loan-offer
+               :effect :propose :item-id str :loan-amount number
+               :stake kw :confidence n :rationale str}")
+
+(defprotocol Advisor
+  (-advise [advisor store request] "request -> proposal map"))
+
+(defn- infer [_store {:keys [op stake item-id loan-amount] :as request}]
+  {:op op
+   :effect :propose
+   :item-id item-id
+   :loan-amount loan-amount
+   :stake (or stake :low)
+   :confidence (case (or stake :low) :high 0.7 :medium 0.85 :low 0.95)
+   :rationale (str "proposed " (name op) " for client " (:client-id request))})
+
+(defn mock-advisor []
+  (reify Advisor
+    (-advise [_ store request] (infer store request))))
+
+(def ^:private system-prompt
+  "You are a pawnbroking advisor. Given a request, propose an :op, the
+   :item-id and :loan-amount, an honest :confidence and a :stake.
+   Never propose a loan amount beyond the item's registered appraised
+   value, or a loan offer for unappraised collateral — the governor
+   checks both against the registered item record. Over-appraisal
+   disbursement and unappraised loan offers always require human
+   sign-off regardless of confidence.")
+
+(defn- parse-proposal [content]
+  (try
+    (let [p (read-string content)]
+      (if (map? p)
+        (assoc p :effect :propose)
+        {:op :unknown :effect :propose :confidence 0.0 :stake :high
+         :rationale "unparseable LLM response"}))
+    (catch #?(:clj Exception :cljs js/Error) _
+      {:op :unknown :effect :propose :confidence 0.0 :stake :high
+       :rationale "LLM response parse failure"})))
+
+(defn llm-advisor
+  [chat-model model-generate-fn gen-opts]
+  (reify Advisor
+    (-advise [_ _store request]
+      (let [msgs [{:role :system :content system-prompt}
+                  {:role :user :content (str "operation request: " (pr-str request))}]
+            resp (model-generate-fn chat-model msgs gen-opts)]
+        (parse-proposal (:content resp))))))

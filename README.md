@@ -4,6 +4,26 @@ Open Occupation Blueprint for **ISCO-08 4213**: Pawnbrokers and Money-lenders.
 
 This repository designs a forkable OSS business for an independent pawnbroking and small-loan practice: a collateral intake, appraisal-support and vault-handling robot manages pledged items under a governor-gated actor, so the practice keeps its own loan records instead of renting a closed lending SaaS.
 
+**Maturity: `:implemented`.** `src/pawnbroking/` implements the
+`PawnbrokingActor` as a `langgraph.graph/state-graph`
+(`pawnbroking.actor`) wired to a `Pawnbroking Advisor` (`pawnbroking.advisor`)
+and an independent `PawnbrokingGovernor` (`pawnbroking.governor`),
+following the itonami actor pattern (ADR-2607011000): `:intake -> :advise
+-> :govern -> :decide -+-> :commit (:ok?) +-> :request-approval (:escalate?,
+human-in-the-loop interrupt) +-> :hold (:hard?)`. 14 tests / 29 assertions
+green (`clojure -M:test`). HARD invariants (always hold, never
+overridable): client provenance, no-actuation (`:effect` must be
+`:propose`), a registered item basis for any loan-offer proposal, the
+proposed loan amount not exceeding the item's registered appraised
+value (a loan beyond the item's registered appraised value is an
+unsecured advance, not a pawn loan), and a completed appraisal before
+any loan can be offered (offering a loan against unappraised collateral
+is an unsecured guess, not a pawn valuation). Always-escalate ops
+(human sign-off regardless of confidence, mapping this repo's Trust
+Controls in [`docs/business-model.md`](docs/business-model.md)):
+`:approve-over-appraisal-disbursement` and
+`:approve-unappraised-loan-offer`.
+
 ## Robotics premise
 
 All cloud-itonami verticals are designed on the premise that a **robot performs

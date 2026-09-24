@@ -1,5 +1,5 @@
 (ns pawnbroking.governor-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [pawnbroking.store :as store]
             [pawnbroking.governor :as governor]))
 

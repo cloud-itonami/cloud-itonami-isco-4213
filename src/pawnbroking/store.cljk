@@ -1,6 +1,6 @@
 (ns pawnbroking.store
   "SSoT for the ISCO-08 4213 independent pawnbroking & small-loan
-  practice actor (itonami actor pattern, ADR-2607011000 / CLAUDE.md
+  practice actor (itonami actor pattern, ADR-2607011000 / AGENTS.md
   Actors section; README's 'Robotics premise' — a collateral intake,
   appraisal-support and vault-handling robot performs item
   photographing, tagging and secure vault storage under this
